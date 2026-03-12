@@ -1,0 +1,5 @@
+This is a codebase to begin establishing the first Predictive Market Index Fund (PMIF). The purpose of the PMIF will be to mirror the "wisdom of crowds" approach that made the S&P 500 the backbone of US trading and apply that to predictive markets.
+
+You are required first to plan out what an automated trading algorithm would look like in theory that minimizes risk, and mirrors the S&P approach to investing in the top 500-5000 trades at any given moment on whatever predictive markets are available.
+
+You will develop the automated trading alrogithm and backtest it against the existing historical data from these predictive markets since their inception. Maximize profit while minimizing risk. You are allowed to try out certain "hedge fund" type strategies that take advantage of inefficiences in the predictive markets (such as time lag for major news), but our main focus is creating an algorithm that can serve as the backbone of a fund that provides a reasonable rate of return by leveraging the wisdom of crowds.
