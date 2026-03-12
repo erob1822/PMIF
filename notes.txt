@@ -1,0 +1,228 @@
+PMIF – Design Notes, Thoughts & Recommendations
+================================================
+Author: Copilot AI (working draft)
+Last updated: 2026-03-12
+
+---
+
+## 1. What Is PMIF?
+
+The Predictive Market Index Fund (PMIF) is a systematic, diversified investment
+fund that participates in prediction markets the same way an S&P 500 index fund
+participates in equities: by holding a broad basket of the most liquid positions,
+weighted by their trading volume.
+
+Key insight: the S&P 500's genius was not stock-picking – it was trusting the
+wisdom of crowds (market prices) and diversifying away idiosyncratic risk.  PMIF
+applies the same philosophy to prediction markets (Kalshi, Polymarket, PredictIt,
+Manifold Markets, etc.).
+
+---
+
+## 2. Why Prediction Markets?
+
+Prediction markets are structurally interesting for several reasons:
+
+a) **Prices are probabilities.** A contract trading at $0.62 means the crowd
+   believes there is a 62% chance of YES.  Returns are therefore mathematically
+   meaningful in a way that makes diversification extremely powerful.
+
+b) **Zero-sum at the market level, but not at the fund level.** Each individual
+   market is zero-sum (buyers and sellers cancel out), but a diversified FUND can
+   earn positive returns if it is better-calibrated than the average trader.
+
+c) **Systematic biases exist.** Academic research (Snowberg & Wolfers 2010,
+   Rothschild 2009) documents consistent longshot bias, favorite-longshot reversal,
+   and time-lag mis-pricing.  These are structural edges, not luck.
+
+d) **Growing asset class.** Kalshi obtained CFTC approval in 2023 for event
+   contracts.  The US prediction market legal landscape is rapidly improving, making
+   this a timely investment vehicle.
+
+---
+
+## 3. Core Algorithm Design
+
+### 3.1 The Index Strategy (Primary)
+
+Inspired by Vanguard's S&P 500 fund:
+
+1. **Universe selection:** Filter all available markets to those with:
+   - Minimum volume (liquidity threshold)
+   - Minimum and maximum time to resolution (avoid imminent or very long-dated)
+   - Price between 3% and 97% (avoid near-certainties)
+   - Category diversification caps (no more than 25-35% in one type)
+
+2. **Weighting:** Allocate capital proportional to each market's trading volume,
+   exactly as the S&P weights by market capitalisation.  Higher-volume markets are
+   better calibrated (more informed participants) and have tighter spreads.
+
+3. **Rebalancing:** Daily (or weekly) rebalancing.  New markets enter the universe
+   as they open; resolved/near-close markets are sold and proceeds reinvested.
+
+4. **Expected return theory:** In a perfectly efficient prediction market, the
+   expected return on a diversified basket equals:
+     E[R] = Σ(w_i * p_i * 1 + w_i * (1-p_i) * 0 - w_i * price_i) / price_i
+           = Σ(w_i * (fair_prob - price)) / price_i  ≈ 0  (no edge)
+   
+   But markets are NOT perfectly efficient.  Alpha comes from:
+   - Being an early liquidity provider in new markets
+   - Systematic biases (longshot, time-lag)
+   - Superior calibration vs. average bettor
+
+### 3.2 Longshot Fade (Overlay Strategy)
+
+Markets consistently overrate extreme probabilities:
+- Events priced at 8% resolve YES only ~6% of the time
+- Events priced at 92% resolve YES ~94% of the time
+- This "favourite-longshot bias" is documented across horse racing, sports betting,
+  and political prediction markets
+
+The Longshot Fade:
+- SHORT YES (buy NO) on contracts priced < 12% → expected edge ~2-3%
+- LONG YES on contracts priced > 88%          → expected edge ~1-2%
+- Small position sizes (0.5% of NAV per position) to remain diversified
+- This is purely a systematic, passive bias harvest – no event knowledge needed
+
+### 3.3 Time-Lag Arbitrage (Opportunistic)
+
+When a major news event breaks, markets in the same category reprice at
+different speeds:
+- Example: "Will Party A win?" might move from 55% → 70% instantly when their
+  candidate wins a key primary.  But "Will Candidate X become the nominee?" might
+  lag 20 minutes before repricing.
+
+Detection:
+- Monitor logit-return (log(p/(1-p)) change) per hour
+- If a market moves > 0.40 logit-units, flag as "shock"
+- Look for correlated markets (same category) that have NOT yet moved
+- Trade in the direction of the shock with a 4-hour hold and exit
+
+Risk: This strategy requires fast execution.  In live trading, latency matters.
+In backtesting, we assume fills at mid-price which slightly overstates returns.
+
+---
+
+## 4. Key Risk Factors
+
+### 4.1 Resolution Risk
+Individual markets can resolve against us.  Mitigation: hold 50+ uncorrelated
+positions.  With 50 positions each at 50% fair-value probability, the variance
+of the portfolio is 50x smaller than a single position.
+
+### 4.2 Liquidity Risk
+Thin markets have wide bid-ask spreads.  Mitigation: minimum volume filter;
+only trade markets with > $1,000 cumulative volume.  In early fund stages,
+focus on the 50-100 most liquid markets rather than the full 500-5000.
+
+### 4.3 Platform/Regulatory Risk
+Prediction markets face ongoing regulatory uncertainty.  Kalshi's CFTC battle
+(won in 2023) was a landmark, but further regulation is possible.
+Mitigation: diversify across multiple platforms.
+
+### 4.4 Correlation Risk
+Political events often move in clusters (election season → many correlated
+political markets move together).  Mitigation: category diversification caps.
+
+### 4.5 Model Risk
+Backtesting is done on SYNTHETIC data – results are illustrative only.
+Real results will differ based on:
+- Actual bid-ask spreads (often 2-5%, much larger than our 0.1% assumption)
+- Platform fees (Kalshi charges ~7% of winnings)
+- Actual market calibration (may be worse in illiquid markets)
+- Resolution disputes and voids
+
+---
+
+## 5. Realistic Return Expectations
+
+IMPORTANT CAVEAT: The synthetic backtest shows ~55% annual returns with a 1.3
+Sharpe ratio.  This is almost certainly OVERSTATED because:
+
+1. Synthetic data assumes well-calibrated markets.  Real markets are noisier.
+2. Bid-ask spreads in real markets are 2-5%, not 0.1%.  Apply a -15% annual
+   drag for realistic spread costs.
+3. Platform fees (Kalshi: ~7% of profit; PredictIt: 5% withdrawal) add another
+   -5 to -10% annually.
+4. Real capital constraints: with $100k, you can't get 100 positions filled at
+   reasonable prices.  Many markets have <$5,000 total liquidity.
+
+Realistic expectations with real-world costs:
+- Conservative: 5-12% annual return (above risk-free, below equity markets)
+- Moderate: 12-20% if bias-harvesting strategies work as documented
+- Optimistic: 20-30% if time-lag arb is implemented with fast execution
+
+For context, the best systematic prediction market funds (as of 2024) report
+15-25% annual returns with Sharpe ratios of 0.8-1.5.
+
+---
+
+## 6. Next Steps & Recommendations
+
+### Immediate (Phase 1):
+1. **Real data integration**: Connect to Kalshi API and pull live market data.
+   Use the DataLoader class; extend with a KalshiConnector adapter.
+2. **Paper trading**: Run the algorithm in paper-trade mode for 30-60 days.
+3. **Spread modelling**: Replace the 0.1% commission with real observed spreads
+   from Kalshi's order book.
+4. **Category correlation analysis**: Build a correlation matrix of category
+   returns to refine the diversification constraints.
+
+### Medium-term (Phase 2):
+5. **Bayesian prior integration**: Instead of taking the market price as ground
+   truth, build a prior from base rates (historical resolution %) and update
+   with market prices.  This can improve calibration estimates.
+6. **Market-maker mode**: Consider posting limit orders at the bid and ask
+   rather than hitting the spread.  This turns the spread from a cost to a
+   revenue source.
+7. **Multi-platform aggregation**: Aggregate Polymarket + Kalshi + Manifold
+   for more markets and arbitrage opportunities between platforms.
+
+### Long-term (Phase 3):
+8. **Fund structure**: Once returns are validated, explore a fund structure.
+   Prediction market profits are typically taxed as ordinary income, not
+   capital gains, so fund structure matters significantly for tax efficiency.
+9. **Benchmark**: Create a formal "PMIF Benchmark Index" tracking the top-500
+   most liquid prediction markets (like S&P tracks top 500 companies by market
+   cap).  This provides a passive benchmark to beat.
+10. **Academic validation**: Partner with academic researchers (Philip Tetlock's
+    group at UPenn has done extensive superforecaster/prediction market research)
+    to validate the systematic biases we're harvesting.
+
+---
+
+## 7. Technical Architecture Notes
+
+The codebase is structured as a Python package (`src/pmif/`):
+
+- `models.py`     : Data classes (Market, Position, Portfolio, Trade)
+- `data/`         : Data generation and loading utilities
+- `universe.py`   : Market selection (the "index committee" logic)
+- `strategy.py`   : Trading algorithms (index, longshot fade, time-lag arb)
+- `portfolio.py`  : Portfolio execution and position management
+- `risk.py`       : Position sizing (Kelly criterion) and circuit breakers
+- `backtester.py` : Event-driven simulation engine
+- `metrics.py`    : Performance measurement (Sharpe, drawdown, CAGR, etc.)
+
+Key design decisions:
+- Dataclasses over ORM: lightweight, fast, easy to serialize
+- Pandas for time-series: well-tested, great for financial data
+- Modular strategies: each strategy is plug-and-play; can be combined
+- Kelly sizing: principled position sizing that maximises long-run growth
+
+---
+
+## 8. Connections to Literature
+
+Key papers supporting this approach:
+
+- Wolfers & Zitzewitz (2004): "Prediction Markets" – foundational paper on
+  the wisdom-of-crowds property of prediction markets
+- Snowberg & Wolfers (2010): "Explaining the Favourite-Long Shot Bias" –
+  documents the systematic overpricing of longshots
+- Tetlock (2005): "Expert Political Judgment" – why crowds beat experts,
+  which underpins why market prices are better than individual forecasts
+- Arrow et al. (2008): "The Promise of Prediction Markets" – on market
+  design for maximum information aggregation
+- Hanson (2003): "Combinatorial Information Market Design" – theoretical
+  foundation for automated market makers in prediction markets
